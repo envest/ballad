@@ -1,0 +1,7 @@
+name: ballad
+channels:
+  - bioconda
+dependencies:
+  - python
+  - numpy
+  - loompy
