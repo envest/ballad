@@ -1,7 +1,20 @@
 name: ballad
 channels:
+  - conda-forge
   - bioconda
 dependencies:
+  - samtools
+  - bcftools
   - python
   - numpy
   - loompy
+  - liftover
+  - perl
+  - perl-archive-zip
+  - perl-dbd-mysql
+  - perl-dbi
+  - perl-module-build
+  - perl-bio-db-hts
+  - perl-compress-raw-zlib
+  - perl-test-warnings
+  - ensembl-vep
