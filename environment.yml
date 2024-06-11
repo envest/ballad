@@ -6,6 +6,7 @@ dependencies:
   - r
   - samtools
   - bcftools
+  - rust
   - vartrix
   - python
   - numpy
