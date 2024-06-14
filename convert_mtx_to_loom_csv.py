@@ -1,5 +1,5 @@
 # vartrix2loom: convert a vartrix mtx file to loom
-# inputs: consensus.mtx variants.tsv barcodes.tsv output.loom output.csv
+# inputs: consensus.mtx variants.vcf barcodes.tsv output.loom output.csv
 
 import sys
 import numpy as np
@@ -20,19 +20,36 @@ mtx_file.readline()
 mtx_file.readline()
 n_var, n_bc, n_nonzero = [int(x) for x in mtx_file.readline().strip().split()]
 
+if n_var == 0:
+    print("No variants found in " + mtx_filename)
+    sys.exit()
+
 consensus_array = np.zeros((n_var, n_bc))
 
 # convert var_file to dict of row_attr
 # match names to tapestri loom
 chr_list = []
 pos_list = []
+ref_list = []
+alt_list = []
 for line in var_file:
-    chr, pos = line.strip().split("_")
-    pos = int(pos) + 1
-    chr_list.append(chr)
-    pos_list.append(pos)
+    if line.startswith("#"):
+        continue
+    else:
+        record = line.strip().split("\t")
+        CHROM = record[0]
+        POS = int(record[1])
+        REF = record[3]
+        ALT = record[4]
+        chr_list.append(CHROM)
+        pos_list.append(POS)
+        ref_list.append(REF)
+        alt_list.append(ALT)
 
-row_attrs = {"chr" : np.array(chr_list), "pos" : np.array(pos_list)} 
+row_attrs = {"CHROM" : np.array(chr_list), 
+        "POS" : np.array(pos_list),
+        "REF" : np.array(ref_list),
+        "ALT" : np.array(alt_list)} 
 col_attrs = {"barcodes": [bc.strip() for bc in bc_file.readlines()]}
 
 mtx_file.close()
@@ -51,7 +68,10 @@ for line in mtx_file:
     consensus_array[var - 1, bc - 1] = gt
 
 # create loom output
-loompy.create(output_loom_filename, consensus_array, {k:np.array(v) for k,v in row_attrs.items()}, {k:np.array(v) for k,v in col_attrs.items()})
+loompy.create(output_loom_filename, 
+        consensus_array, 
+        {k:np.array(v) for k,v in row_attrs.items()}, 
+        {k:np.array(v) for k,v in col_attrs.items()})
 
 # create csv output
 output_csv = open(output_csv_filename, "w")
@@ -60,7 +80,7 @@ header_line = ",".join(["variant"] + list(col_attrs["barcodes"])) + "\n"
 output_csv.write(header_line)
 
 for row_index in range(n_var):
-    var = ":".join([chr_list[row_index], pos_list[row_index])
+    var = ":".join([chr_list[row_index], str(pos_list[row_index]), str(ref_list[row_index]), str(alt_list[row_index])])
     write_line = ",".join([var] + [str(int(x)) for x in consensus_array[row_index]]) + "\n"
     output_csv.write(write_line)
 
