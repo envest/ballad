@@ -12,6 +12,7 @@ dependencies:
   - numpy
   - loompy
   - liftover
+  - pyfaidx
   - perl
   - perl-archive-zip
   - perl-dbd-mysql
