@@ -1,4 +1,5 @@
 import sys
+import shutil
 import loompy
 import numpy as np
 
@@ -9,15 +10,17 @@ output_dir = sys.argv[3]
 gq_min = 30
 dp_min = 10
 scVAF_min = 0.2
-max_cell_NA = 0.5
-max_var_NA = 0.5
-min_pct_mut = 0.01
+min_prop_cell_with_GT = 0.5
+min_prop_var_with_GT = 0.5
+min_prop_var_mutated = 0.01
 
 var_cb_file = output_dir + "/" + output_file_prefix + ".variant_cell_barcode.tsv"
 var_sum_file = output_dir + "/" + output_file_prefix + ".variant_summary.tsv"
+filtered_loom_file = output_dir + "/" + output_file_prefix + ".loom"
 
-ds = loompy.connect(loom_filename)
-ds_GT_copy = ds[""][:,:]
+# copy existing loom file to filtered loom file
+shutil.copy2(loom_filename, filtered_loom_file)
+ds = loompy.connect(filtered_loom_file)
 
 keep_var_index = []
 keep_cb_index = []
@@ -25,11 +28,12 @@ keep_cb_index = []
 n_variants = ds.shape[0]
 n_cells = ds.shape[1]
 
-# genotype filter
+# Filters 1-3: set genotype to missing if GQ < gq_min, DP < dp_min, or scVAF < scVAF_min
+# applied simultaneously because each genotype is independent
 
 def calculate_scVAF(GT, AD, DP):
-    scVAF = np.array([[1.0]*GT.shape[1]]*GT.shape[0])
-    where_GT_is_01 = np.where((GT[:,:] == 1) & (DP[:,:] > 0))
+    scVAF = np.array([[None]*GT.shape[1]]*GT.shape[0])
+    where_GT_is_01 = np.where((GT[:,:] == 1 | GT[:,:] == 2) & (DP[:,:] > 0))
     i = where_GT_is_01[0]
     j = where_GT_is_01[1]
     scVAF[i,j] = np.divide(AD[:,:][i,j], DP[:,:][i,j])
@@ -37,30 +41,35 @@ def calculate_scVAF(GT, AD, DP):
 
 scVAF = calculate_scVAF(ds, ds["AD"], ds["DP"])
 
-set_missing_index_array = np.where((ds["GQ"][:,:] < gq_min) | (ds["DP"][:,:] < dp_min) | ((ds[:,:] == 1) & (scVAF[:,:] < scVAF_min)) | ((ds[:,:] == 1) & (scVAF[:,:] > 1 - scVAF_min)))
+set_missing_index_array = np.where((ds["GQ"][:,:] < gq_min) | (ds["DP"][:,:] < dp_min) | (scVAF[:,:] is not None & scVAF[:,:] < scVAF_min))
 i = set_missing_index_array[0]
 j = set_missing_index_array[1]
 
-ds_GT_copy[i,j] = 3
+ds[i,j] = 3
 
-# cell barcode filter
+# Filter 4: remove variants with genotype in < X% of cells
+prop_var_with_GT = 1 - np.apply_along_axis(np.mean, 1, ds[:,:] == 3)
+keep_var_index_F4 = np.where(prop_var_with_GT >= min_prop_var_with_GT)
+ds = ds[:,keep_var_index_F4]
 
-keep_cb_index = np.where(np.apply_along_axis(sum, 0, ds_GT_copy == 3)/n_variants < max_cell_NA)[0]
+# Filter 5: remove cells with genotype in < X% of variants
+prop_cell_with_GT = 1 - np.apply_along_axis(np.mean, 0, ds[:,:] == 3)
+keep_cell_index_F5 = np.where(prop_cell_with_GT >= min_prop_cell_with_GT)
+ds = ds[keep_cell_index_F5,:]
 
-# variant filter
-
+# Filter 6: remove variants mutated in < X% of cells
 def prop_GT_mutated(n_GT_00, n_GT_not_missing):
     prop_GT_00 = np.array([0.0]*len(n_GT_00))
     has_GT = np.where(n_GT_not_missing > 0)
     prop_GT_00[has_GT] = n_GT_00[has_GT]/n_GT_not_missing[has_GT]
     return(1 - prop_GT_00)
 
-n_GT_00 = np.apply_along_axis(sum, 1, ds_GT_copy[:, keep_cb_index] == 0)
-n_GT_not_missing = np.apply_along_axis(sum, 1, ds_GT_copy[:, keep_cb_index] != 3)
+n_GT_00 = np.apply_along_axis(sum, 1, ds[:,:] == 0)
+n_GT_not_missing = np.apply_along_axis(sum, 1, ds[:,:] != 3)
 prop_var_mutated = prop_GT_mutated(n_GT_00, n_GT_not_missing)
-prop_var_NA = np.apply_along_axis(np.mean, 1, ds_GT_copy[:, keep_cb_index] == 3)
 
-keep_var_index = np.where((prop_var_mutated > min_pct_mut) & (prop_var_NA < max_var_NA))[0]
+keep_var_index_F6 = np.where(prop_var_mutated >= min_prop_var_mutated)
+ds = ds[:,keep_var_index_F6]
 
 # write output files
 
@@ -74,14 +83,17 @@ var_sum_header_list = ["chr", "pos", "ref", "alt", "n_cells", "n_00", "n_01", "n
 var_sum_header_line = "\t".join(var_sum_header_list) + "\n"
 var_sum.write(var_sum_header_line)
 
-for var_index in keep_var_index:
+n_var = ds.shape[0]
+n_cells = ds.shape[1]
+
+for var_index in range(n_var):
     
     chr = ds.ra["CHROM"][var_index]
     pos = ds.ra["POS"][var_index]
     ref = ds.ra["REF"][var_index]
     alt = ds.ra["ALT"][var_index]
 
-    for cb_index in keep_cb_index:
+    for cb_index in range(n_cells):
         
         cb = ds.ca["barcode"][cb_index]
         gt = ds_GT_copy[var_index, cb_index]
@@ -94,8 +106,7 @@ for var_index in keep_var_index:
         var_line = "\t".join(var_cb_list) + "\n"
         var_cb.write(var_line)
 
-    var = ds_GT_copy[var_index, keep_cb_index]
-    n_cells = len(var)
+    var = ds[var_index,:]
     n_na = (var == 3).sum()
     n_not_na = n_cells - n_na
     n_00 = (var == 0).sum()
@@ -108,4 +119,4 @@ for var_index in keep_var_index:
 
 var_cb.close()
 var_sum.close()
-
+ds.close()
