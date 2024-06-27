@@ -1,11 +1,28 @@
 #!/usr/bin/bash
 
-dir_cache="${HOME}/.vep"
-assembly="GRCh38"
-fasta="${dir_cache}/Homo_sapiens.GRCh38.dna.primary_assembly.fa.gz"
+input_vcf=$1
+output_vcf=$2
+assembly=$3
 
-vep --input_file test.VEP_input.hg38.vcf --format vcf \
-	--output_file output.txt --vcf \
+dir_cache="${HOME}/.vep"
+
+if [ ${assembly} == "GRCh38" ]; then
+
+	fasta="${dir_cache}/Homo_sapiens.GRCh38.dna.primary_assembly.fa.gz"
+
+elif [ ${assembly} == "GRCh37" ]; then
+
+	fasta="${dir_cache}/Homo_sapiens.GRCh37.75.dna.primary_assembly.fa.gz"
+
+else
+
+	echo "Assembly must be GRCh37 or GRCh38"
+	exit 1
+
+fi
+
+vep --input_file ${input_vcf} --format vcf \
+	--output_file ${output_vcf} --vcf \
 	--force_overwrite \
 	--no_stats \
 	--no_check_variants_order \
@@ -14,17 +31,11 @@ vep --input_file test.VEP_input.hg38.vcf --format vcf \
 	--dir_cache ${dir_cache} \
 	--fasta ${fasta} \
 	--assembly ${assembly} \
-	--variant_class \
-	--nearest symbol \
-	--gene_phenotype \
-	--regulatory \
-	--show_ref_allele \
+	--pick \
 	--hgvs \
 	--symbol \
 	--canonical \
-	--domains \
 	--check_existing \
 	--exclude_null_alleles \
-	--af \
-	--max_af \
-	--af_gnomadg
+	--af
+
