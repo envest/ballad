@@ -8,7 +8,7 @@ selected_cells_loom_filename = sys.argv[3]
 
 # barcodes
 bc_file = open(bc_filename, "r")
-bc_list = bc_file.readlines().strip().split()
+bc_list = [x.strip() for x in bc_file.readlines()]
 
 # create new loom file and select cells to fill it
 with loompy.new(selected_cells_loom_filename) as selected_cells_ds:
