@@ -1,4 +1,4 @@
-#!/usr/bin/bash
+#!/bin/sh
 
 input_vcf=$1
 output_vcf=$2
