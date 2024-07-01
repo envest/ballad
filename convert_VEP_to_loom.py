@@ -22,7 +22,9 @@ chr_list = []
 pos_list = []
 ref_list = []
 alt_list = []
+variant_list = []
 annotations_dict = {}
+n_records = 0
 for k in annotation_keys:
   annotations_dict[k] = []
   
@@ -30,29 +32,38 @@ for line in vcf_file:
     if line.startswith("#"):
         continue
     else:
+        n_records += 1
         record = line.strip().split("\t")
         CHROM = record[0]
         POS = int(record[1])
         REF = record[3]
         ALT = record[4]
-        annotations = record[7].split("=")[1].split("|")
+        presplit_annotations = record[7]
+        if presplit_annotations.startswith("CSQ="):
+            annotations = record[7].split("=")[1].split("|")
+            annotations_converted = [None if x == '' else x for x in annotations]
+        else:
+            annotations_converted = [None]*n_annotation_keys
         chr_list.append(CHROM)
         pos_list.append(POS)
         ref_list.append(REF)
         alt_list.append(ALT)
+        variant_list.append(":".join([CHROM, str(POS), REF, ALT]))
         for ki in range(n_annotation_keys):
-          annotations_dict[annotation_keys[ki]] = annotations_dict[annotation_keys[ki]].append(annotations[ki])
-
-row_attrs = {"CHROM" : np.array(chr_list), 
-        "POS" : np.array(pos_list),
-        "REF" : np.array(ref_list),
-        "ALT" : np.array(alt_list)} 
-
-layers = {k : np.array(v) for k,v in annotations_dict.items()}
+          annotations_dict[annotation_keys[ki]].append(annotations_converted[ki])
 
 vcf_file.close()
+
+# set up loom components
+row_attrs = {"CHROM" : np.array(chr_list), "POS" : np.array(pos_list), "REF" : np.array(ref_list), "ALT" : np.array(alt_list), "variant" : np.array(variant_list)} | {k : np.array(v) for k,v in annotations_dict.items()}
+
+col_attrs = {"VEP" : [0]}
+
+layers = {"" : np.zeros((n_records, 1))}
 
 # create loom output
 loompy.create(output_loom_filename,
   layers,
-  row_attrs)
+  row_attrs,
+  col_attrs)
+
