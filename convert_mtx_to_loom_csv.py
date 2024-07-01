@@ -32,6 +32,7 @@ chr_list = []
 pos_list = []
 ref_list = []
 alt_list = []
+variant_list = []
 for line in var_file:
     if line.startswith("#"):
         continue
@@ -45,11 +46,14 @@ for line in var_file:
         pos_list.append(POS)
         ref_list.append(REF)
         alt_list.append(ALT)
+        variant_list.append(":".join([CHROM, str(POS), REF, ALT]))
 
 row_attrs = {"CHROM" : np.array(chr_list), 
         "POS" : np.array(pos_list),
         "REF" : np.array(ref_list),
-        "ALT" : np.array(alt_list)} 
+        "ALT" : np.array(alt_list),
+        "variant" : np.array(variant_list}
+
 col_attrs = {"barcodes": [bc.strip() for bc in bc_file.readlines()]}
 
 mtx_file.close()
