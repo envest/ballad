@@ -19,9 +19,15 @@ output_file = open(output_filename, "w")
 output_file.write("\t".join(output_header_list) + "\n")
 
 vep_input_hg19_file = open(vep_input_hg19_filename, "w")
+vep_input_hg19_file.write("##fileformat=VCFv4.2\n")
+for c in [str(x) for x in range(1, 23)] + ["X", "Y"]:
+    vep_input_hg19_file.write("##contig=<ID=chr" + c + ">\n")
 vep_input_hg19_file.write("\t".join(vcf_header_list) + "\n")
 
 vep_input_hg38_file = open(vep_input_hg38_filename, "w")
+vep_input_hg38_file.write("##fileformat=VCFv4.2\n")
+for c in [str(x) for x in range(1, 23)] + ["X", "Y"]:
+    vep_input_hg38_file.write("##contig=<ID=chr" + c + ">\n")
 vep_input_hg38_file.write("\t".join(vcf_header_list) + "\n")
 
 ds = loompy.connect(loom_filename)
