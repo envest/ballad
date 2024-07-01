@@ -6,6 +6,10 @@ loom_filename = sys.argv[1]
 output_file_prefix = sys.argv[2]
 output_dir = sys.argv[3]
 
+annotation_loom_file = sys.argv[4]
+rna_loom_file = sys.argv[5]
+#atac_loom_file = sys.argv[6]
+
 gq_min = 30
 dp_min = 10
 scVAF_min = 0.2
@@ -30,6 +34,53 @@ with loompy.connect(loom_filename) as ds:
     row_dict[k] = v
   for k,v in ds.ca.items():
     col_dict[k] = v
+
+row_dict["variant"] = [":".join([c, str(p), r, a]) for c,p,r,a in 
+  zip(row_dict["CHROM"], 
+    row_dict["POS"], 
+    row_dict["REF"], 
+    row_dict["ALT"])]
+
+# set up annotation, RNA, and ATAC dictionaries
+with loompy.connect(annotation_loom_file) as ds_annot:
+  annot_dict = {}
+  for k in ds_annot.ra.keys():
+    annot_dict[k] = []
+  for v in row_dict["variant"]:
+    if v in ds_annot.ra["variant"]:
+      annot_index = np.where(ds_annot.ra["variant"] == v)[0]
+    else:
+      annot_index = None
+    for k in ds_annot.ra.keys():
+      if annot_index is None:
+        annot_dict[k].append(None)
+      else:
+        annot_dict[k].append(ds_annot[k][annot_index])
+        
+with loompy.connect(rna_loom_file) as ds_rna:
+  rna_dict = {"n_cells_REF" : [], "n_cells_ALT" = [], "n_cells_missing" = []}
+  for k in ds_rna.ra.keys():
+    rna_dict[k] = []
+  for v in row_dict["variant"]:
+    if v in ds_rna.ra["variant"]:
+      rna_index = np.where(ds_rna.ra["variant"] == v)[0]
+      n_cells_REF = sum(ds_rna[rna_index,:] == 1)
+      n_cells_ALT = sum(ds_rna[rna_index,:] > 1)
+      n_cells_missing = sum(ds_rna[rna_index,:] == 0)
+    else:
+      print("Variant " + v + " missing from RNA vartrix")
+      rna_index = None
+      n_cells_REF = -1
+      n_cells_ALT = -1
+      n_cells_missing = -1
+    rna_dict["n_cells_REF"].append(n_cells_REF)
+    rna_dict["n_cells_ALT"].append(n_cells_ALT)
+    rna_dict["n_cells_missing"].append(n_cells_missing)
+    for k in ds_rna.ra.keys():
+      if rna_index is None:
+        rna_dict[k].append(None)
+      else:
+        rna_dict[k].append(ds_rna[k][rna_index])
 
 # Filters 1-3: set genotype to missing if GQ < gq_min, DP < dp_min, or scVAF < scVAF_min
 # can be applied simultaneously because each genotype is independent
@@ -61,6 +112,12 @@ for k,v in layers_dict.items():
 
 for k,v in row_dict.items():
   row_dict[k] = v[keep_var_index_F4]
+  
+for k,v in rna_dict.items():
+  rna_dict[k] = v[keep_var_index_F4]
+  
+#for k,v in atac_dict.items():
+#  atac_dict[k] = v[keep_var_index_F4]
 
 # Filter 5: remove cells with genotype in < X% of variants
 prop_cell_with_GT = 1 - np.apply_along_axis(np.mean, 0, layers_dict[""] == 3)
@@ -83,7 +140,7 @@ n_GT_00 = np.apply_along_axis(sum, 1, layers_dict[""] == 0)
 n_GT_not_missing = np.apply_along_axis(sum, 1, layers_dict[""] != 3)
 prop_var_mutated = prop_GT_mutated(n_GT_00, n_GT_not_missing)
 
-keep_var_index_F6 = np.where(prop_var_mutated >= min_prop_var_mutated)[0]
+keep_var_index_F6 = np.where(prop_var_mutated >= min_prop_var_mutated or rna_dict["n_cells_ALT"] > 0)[0]
 
 for k,v in layers_dict.items():
   layers_dict[k] = v[keep_var_index_F6,:]
