@@ -54,7 +54,7 @@ row_attrs = {"CHROM" : np.array(chr_list),
         "ALT" : np.array(alt_list),
         "variant" : np.array(variant_list}
 
-col_attrs = {"barcodes": [bc.strip() for bc in bc_file.readlines()]}
+col_attrs = {"barcode": [bc.strip() for bc in bc_file.readlines()]}
 
 mtx_file.close()
 var_file.close()
