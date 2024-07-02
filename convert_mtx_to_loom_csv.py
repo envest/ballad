@@ -52,7 +52,7 @@ row_attrs = {"CHROM" : np.array(chr_list),
         "POS" : np.array(pos_list),
         "REF" : np.array(ref_list),
         "ALT" : np.array(alt_list),
-        "variant" : np.array(variant_list}
+        "variant" : np.array(variant_list)}
 
 col_attrs = {"barcode": [bc.strip() for bc in bc_file.readlines()]}
 
@@ -80,7 +80,7 @@ loompy.create(output_loom_filename,
 # create csv output
 output_csv = open(output_csv_filename, "w")
 
-header_line = ",".join(["variant"] + list(col_attrs["barcodes"])) + "\n"
+header_line = ",".join(["variant"] + list(col_attrs["barcode"])) + "\n"
 output_csv.write(header_line)
 
 for row_index in range(n_var):
