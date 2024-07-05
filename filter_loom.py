@@ -9,7 +9,7 @@ output_dir = sys.argv[3]
 liftover_file = sys.argv[4]
 annotation_loom_file = sys.argv[5]
 rna_loom_file = sys.argv[6]
-#atac_loom_file = sys.argv[6]
+atac_loom_file = sys.argv[7]
 
 gq_min = 30
 dp_min = 10
@@ -17,6 +17,7 @@ scVAF_min = 0.2
 min_prop_cell_with_GT = 0.5
 min_prop_var_with_GT = 0.5
 min_prop_var_mutated = 0.01
+min_multiome_cells = 1
 
 var_cb_file = output_dir + "/" + output_file_prefix + ".variant_cell_barcode.tsv"
 var_sum_file = output_dir + "/" + output_file_prefix + ".variant_summary.tsv"
@@ -90,7 +91,7 @@ with loompy.connect(atac_loom_file) as ds_atac:
 
 # gather RNA information about each variant
 with loompy.connect(rna_loom_file) as ds_rna:  
-  rna_dict = {"n_cells_REF" : np.zeros(), "n_cells_ALT" : [], "n_cells_missing" : []}
+  rna_dict = {"n_cells_REF" : [], "n_cells_ALT" : [], "n_cells_missing" : []}
   for k in ds_rna.ra.keys():
     rna_dict[k] = []
   for v in row_dict["variant_GRCh38"]:
@@ -112,12 +113,14 @@ with loompy.connect(rna_loom_file) as ds_rna:
         rna_dict[k].append(None)
       else:
         rna_dict[k].append(ds_rna.ra[k][rna_index])
-        
+
+rna_dict["n_cells_REF"] = np.array(rna_dict["n_cells_REF"])        
 rna_dict["n_cells_ALT"] = np.array(rna_dict["n_cells_ALT"])
+rna_dict["n_cells_missing"] = np.array(rna_dict["n_cells_missing"])
 
 # gather ATAC information about each variant
 with loompy.connect(atac_loom_file) as ds_atac:  
-  atac_dict = {"n_cells_REF" : np.zeros(), "n_cells_ALT" : [], "n_cells_missing" : []}
+  atac_dict = {"n_cells_REF" : [], "n_cells_ALT" : [], "n_cells_missing" : []}
   for k in ds_atac.ra.keys():
     atac_dict[k] = []
   for v in row_dict["variant_GRCh38"]:
@@ -140,7 +143,9 @@ with loompy.connect(atac_loom_file) as ds_atac:
       else:
         atac_dict[k].append(ds_atac.ra[k][atac_index])
         
+atac_dict["n_cells_REF"] = np.array(atac_dict["n_cells_REF"])
 atac_dict["n_cells_ALT"] = np.array(atac_dict["n_cells_ALT"])
+atac_dict["n_cells_missing"] = np.array(atac_dict["n_cells_missing"])
 
 # Filters 1-3: set genotype to missing if GQ < gq_min, DP < dp_min, or scVAF < scVAF_min
 # can be applied simultaneously because each genotype is independent
@@ -176,8 +181,8 @@ for k,v in row_dict.items():
 for k,v in rna_dict.items():
   rna_dict[k] = v[keep_var_index_F4]
   
-#for k,v in atac_dict.items():
-#  atac_dict[k] = v[keep_var_index_F4]
+for k,v in atac_dict.items():
+  atac_dict[k] = v[keep_var_index_F4]
 
 # Filter 5: remove cells with genotype in < X% of variants
 prop_cell_with_GT = 1 - np.apply_along_axis(np.mean, 0, layers_dict[""] == 3)
@@ -200,14 +205,20 @@ n_GT_00 = np.apply_along_axis(sum, 1, layers_dict[""] == 0)
 n_GT_not_missing = np.apply_along_axis(sum, 1, layers_dict[""] != 3)
 prop_var_mutated = prop_GT_mutated(n_GT_00, n_GT_not_missing)
 
-multiome_evidence = np.logical_or(rna_dict["n_cells_ALT"] > 0, atac_dict["n_cells_ALT"] > 0)
-keep_var_index_F6 = np.where(prop_var_mutated >= min_prop_var_mutated or multiome_evidence)[0]
+multiome_evidence = np.logical_or(rna_dict["n_cells_ALT"] >= min_multiome_cells, atac_dict["n_cells_ALT"] >= min_multiome_cells)
+keep_var_index_F6 = np.where(prop_var_mutated >= min_prop_var_mutated or (multiome_evidence and prop_var_mutation > 0))[0]
 
 for k,v in layers_dict.items():
   layers_dict[k] = v[keep_var_index_F6,:]
 
 for k,v in row_dict.items():
   row_dict[k] = v[keep_var_index_F6]
+
+for k,v in rna_dict.items():
+  rna_dict[k] = v[keep_var_index_F6]
+  
+for k,v in atac_dict.items():
+  atac_dict[k] = v[keep_var_index_F6]
 
 # write filtered loom file
 loompy.create(filtered_loom_file, layers_dict, row_dict, col_dict)
@@ -220,7 +231,7 @@ var_cb_header_line = "\t".join(var_cb_header_list) + "\n"
 var_cb.write(var_cb_header_line)
 
 var_sum = open(var_sum_file, "w")
-var_sum_header_list = ["chr", "pos", "ref", "alt", "n_cells", "n_00", "n_01", "n_11", "n_na", "prop_cells_mutated", "alt_allele_freq"]
+var_sum_header_list = ["variant_GRCh37", "variant_GRCh38", "chr_GRCh37", "chr_GRCh38", "pos_GRCh37", "pos_GRCh38", "ref", "alt", "n_cells", "n_00", "n_01", "n_11", "n_na", "prop_cells_mutated", "alt_allele_freq"] + [x + "_scRNA" for x in list(rna_list.keys())] + [x + "_scATAC" for x in list(atac_list.keys())] + list(annot_dict.keys())
 var_sum_header_line = "\t".join(var_sum_header_list) + "\n"
 var_sum.write(var_sum_header_line)
 
@@ -228,8 +239,10 @@ n_var = layers_dict[""].shape[0]
 n_cells = layers_dict[""].shape[1]
 
 for var_index in range(n_var):
-    chr = row_dict["CHROM"][var_index]
-    pos = row_dict["POS"][var_index]
+    variant_GRCh37 = row_dict["variant_GRCh37"][var_index]
+    variant_GRCh38 = row_dict["variant_GRCh38"][var_index]
+    chr_GRCh37, pos_GRCh37 = variant_GRCh37.split(":")[0:2]
+    chr_GRCh38, pos_GRCh38 = variant_GRCh38.split(":")[0:2]
     ref = row_dict["REF"][var_index]
     alt = row_dict["ALT"][var_index]
     for cb_index in range(n_cells):
@@ -250,7 +263,10 @@ for var_index in range(n_var):
     n_11 = (var == 2).sum()
     prop_cells_mutated = (n_01 + n_11)/(n_not_na)
     alt_allele_freq = (n_01 + 2*n_11)/(2*n_not_na)
-    sum_line = [str(x) for x in [chr, pos, ref, alt, str(n_cells), str(n_00), str(n_01), str(n_11), str(n_na), str(prop_cells_mutated), str(alt_allele_freq)]]
+    rna_values = [rna_dict[x][var_index] for x in list(rna_dict.keys())]
+    atac_values = [atac_dict[x][var_index] for x in list(atac_dict.keys())]
+    annot_values = [annot_dict[x][var_index] for x in list(annot_dict.keys())]
+    sum_line = [str(x) for x in [variant_GRCh37, variant_GRCh38, chr_GRCh37, chr_GRCh38, pos_GRCh37, pos_GRCh38, ref, alt, n_cells, n_00, n_01, n_11, n_na, prop_cells_mutated, alt_allele_freq] + rna_values + atac_values + annot_values]
     var_sum.write("\t".join(sum_line) + "\n")
 
 var_cb.close()
