@@ -1,6 +1,9 @@
 import sys
 import loompy
 import numpy as np
+import time
+
+t0 = time.time()
 
 loom_filename = sys.argv[1]
 output_file_prefix = sys.argv[2]
@@ -56,6 +59,9 @@ row_dict["variant_GRCh37"] = [":".join(["chr" + str(c), str(p), r, a]) for c,p,r
     
 row_dict["variant_GRCh38"] = [liftover_dict["GRCh37"][x] if x in liftover_dict["GRCh37"] else None for x in row_dict["variant_GRCh37"]]
 
+t1 = time.time()
+print(str(round(t1 - t0)) + " seconds to load in relevant scDNA info")
+
 # set up annotation, RNA, and ATAC dictionaries
 with loompy.connect(annotation_loom_file) as ds_annot:
   annot_dict = {}
@@ -71,6 +77,9 @@ with loompy.connect(annotation_loom_file) as ds_annot:
       else:
         annot_dict[k].append(ds_annot.ra[k][annot_index])
 
+t2 = time.time()
+print(str(round(t2 - t1)) + " seconds to load annotation info")
+
 # how many cells are REF/ALT from RNA
 with loompy.connect(rna_loom_file) as ds_rna:
   rna_n_cells_ref = np.zeros(ds_rna.shape[0])
@@ -80,6 +89,9 @@ with loompy.connect(rna_loom_file) as ds_rna:
     rna_n_cells_alt[selection.min():selection.max() + 1] = np.apply_along_axis(sum, 1, view[:,:] > 1)
   rna_n_cells_missing = ds_rna.shape[1] - rna_n_cells_ref - rna_n_cells_alt
 
+t3 = time.time()
+print(str(round(t3 - t2)) + " seconds to load RNA info")
+
 # how many cells are REF/ALT from ATAC  
 with loompy.connect(atac_loom_file) as ds_atac:
   atac_n_cells_ref = np.zeros(ds_atac.shape[0])
@@ -88,6 +100,9 @@ with loompy.connect(atac_loom_file) as ds_atac:
     atac_n_cells_ref[selection.min():selection.max() + 1] = np.apply_along_axis(sum, 1, view[:,:] == 1)
     atac_n_cells_alt[selection.min():selection.max() + 1] = np.apply_along_axis(sum, 1, view[:,:] > 1)
   atac_n_cells_missing = ds_atac.shape[1] - atac_n_cells_ref - atac_n_cells_alt
+
+t4 = time.time()
+print(str(round(t4 - t3)) + " seconds to load ATAC info")
 
 # gather RNA information about each variant
 with loompy.connect(rna_loom_file) as ds_rna:  
@@ -118,6 +133,9 @@ rna_dict["n_cells_REF"] = np.array(rna_dict["n_cells_REF"])
 rna_dict["n_cells_ALT"] = np.array(rna_dict["n_cells_ALT"])
 rna_dict["n_cells_missing"] = np.array(rna_dict["n_cells_missing"])
 
+t5 = time.time()
+print(str(round(t5 - t4)) + " seconds to process RNA info")
+
 # gather ATAC information about each variant
 with loompy.connect(atac_loom_file) as ds_atac:  
   atac_dict = {"n_cells_REF" : [], "n_cells_ALT" : [], "n_cells_missing" : []}
@@ -147,6 +165,9 @@ atac_dict["n_cells_REF"] = np.array(atac_dict["n_cells_REF"])
 atac_dict["n_cells_ALT"] = np.array(atac_dict["n_cells_ALT"])
 atac_dict["n_cells_missing"] = np.array(atac_dict["n_cells_missing"])
 
+t6 = time.time()
+print(str(round(t6 - t5)) + " seconds to process ATAC info")
+
 # Filters 1-3: set genotype to missing if GQ < gq_min, DP < dp_min, or scVAF < scVAF_min
 # can be applied simultaneously because each genotype is independent
 
@@ -159,6 +180,9 @@ def calculate_scVAF(GT, AD, DP):
     return(scVAF)
 
 scVAF = calculate_scVAF(layers_dict[""], layers_dict["AD"], layers_dict["DP"])
+
+t7 = time.time()
+print(str(round(t7 - t6)) + " seconds to calculate scVAF")
 
 set_missing_index_array = np.where((layers_dict["GQ"] < gq_min) | (layers_dict["DP"] < dp_min) | (scVAF < scVAF_min))
 
@@ -205,6 +229,9 @@ n_GT_00 = np.apply_along_axis(sum, 1, layers_dict[""] == 0)
 n_GT_not_missing = np.apply_along_axis(sum, 1, layers_dict[""] != 3)
 prop_var_mutated = prop_GT_mutated(n_GT_00, n_GT_not_missing)
 
+t8 = time.time()
+print(str(round(t8 - t7)) + " seconds to perform standard filters")
+
 multiome_evidence = np.logical_or(rna_dict["n_cells_ALT"] >= min_multiome_cells, atac_dict["n_cells_ALT"] >= min_multiome_cells)
 keep_var_index_F6 = np.where(prop_var_mutated >= min_prop_var_mutated or (multiome_evidence and prop_var_mutation > 0))[0]
 
@@ -220,8 +247,14 @@ for k,v in rna_dict.items():
 for k,v in atac_dict.items():
   atac_dict[k] = v[keep_var_index_F6]
 
+t9 = time.time()
+print(str(round(t9 - t8)) + " seconds to add multiome filter")
+
 # write filtered loom file
 loompy.create(filtered_loom_file, layers_dict, row_dict, col_dict)
+
+t10 = time.time()
+print(str(round(t10 - t9)) + " seconds to write loom file")
 
 # write other output files
 
@@ -271,3 +304,6 @@ for var_index in range(n_var):
 
 var_cb.close()
 var_sum.close()
+
+t11 = time.time()
+print(str(round(t11 - t10))) + " seconds to write barcode and summary files")
