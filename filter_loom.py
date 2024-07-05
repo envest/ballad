@@ -3,8 +3,6 @@ import loompy
 import numpy as np
 import time
 
-t0 = time.time()
-
 loom_filename = sys.argv[1]
 output_file_prefix = sys.argv[2]
 output_dir = sys.argv[3]
@@ -13,6 +11,8 @@ liftover_file = sys.argv[4]
 annotation_loom_file = sys.argv[5]
 rna_loom_file = sys.argv[6]
 atac_loom_file = sys.argv[7]
+
+t0 = time.time()
 
 gq_min = 30
 dp_min = 10
@@ -160,7 +160,7 @@ with loompy.connect(atac_loom_file) as ds_atac:
         atac_dict[k].append(None)
       else:
         atac_dict[k].append(ds_atac.ra[k][atac_index])
-        
+
 atac_dict["n_cells_REF"] = np.array(atac_dict["n_cells_REF"])
 atac_dict["n_cells_ALT"] = np.array(atac_dict["n_cells_ALT"])
 atac_dict["n_cells_missing"] = np.array(atac_dict["n_cells_missing"])
@@ -179,7 +179,7 @@ def calculate_scVAF(GT, AD, DP):
     scVAF[i,j] = np.divide(AD[i,j], DP[i,j])
     return(scVAF)
 
-scVAF = calculate_scVAF(layers_dict[""], layers_dict["AD"], layers_dict["DP"])
+scVAF = calculate_scVAF(layers_dict[""][:,:], layers_dict["AD"][:,:], layers_dict["DP"][:,:])
 
 t7 = time.time()
 print(str(round(t7 - t6)) + " seconds to calculate scVAF")
@@ -197,15 +197,19 @@ prop_var_with_GT = 1 - np.apply_along_axis(np.mean, 1, layers_dict[""] == 3)
 keep_var_index_F4 = np.where(prop_var_with_GT >= min_prop_var_with_GT)[0]
 
 for k,v in layers_dict.items():
+  print(k)
   layers_dict[k] = v[keep_var_index_F4,:]
 
 for k,v in row_dict.items():
+  print(k)
   row_dict[k] = v[keep_var_index_F4]
   
 for k,v in rna_dict.items():
+  print(k)
   rna_dict[k] = v[keep_var_index_F4]
   
 for k,v in atac_dict.items():
+  print(k)
   atac_dict[k] = v[keep_var_index_F4]
 
 # Filter 5: remove cells with genotype in < X% of variants
