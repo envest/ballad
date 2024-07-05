@@ -306,4 +306,4 @@ var_cb.close()
 var_sum.close()
 
 t11 = time.time()
-print(str(round(t11 - t10))) + " seconds to write barcode and summary files")
+print(str(round(t11 - t10)) + " seconds to write barcode and summary files")
