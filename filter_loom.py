@@ -51,13 +51,13 @@ with loompy.connect(loom_filename) as ds:
   for k,v in ds.ca.items():
     col_dict[k] = v
 
-row_dict["variant_GRCh37"] = [":".join(["chr" + str(c), str(p), r, a]) for c,p,r,a in 
+row_dict["variant_GRCh37"] = np.array([":".join(["chr" + str(c), str(p), r, a]) for c,p,r,a in 
   zip(row_dict["CHROM"], 
     row_dict["POS"], 
     row_dict["REF"], 
-    row_dict["ALT"])]
+    row_dict["ALT"])])
     
-row_dict["variant_GRCh38"] = [liftover_dict["GRCh37"][x] if x in liftover_dict["GRCh37"] else None for x in row_dict["variant_GRCh37"]]
+row_dict["variant_GRCh38"] = np.array([liftover_dict["GRCh37"][x] if x in liftover_dict["GRCh37"] else None for x in row_dict["variant_GRCh37"]])
 
 t1 = time.time()
 print(str(round(t1 - t0)) + " seconds to load in relevant scDNA info")
@@ -129,10 +129,9 @@ with loompy.connect(rna_loom_file) as ds_rna:
       else:
         rna_dict[k].append(ds_rna.ra[k][rna_index])
 
-rna_dict["n_cells_REF"] = np.array(rna_dict["n_cells_REF"])        
-rna_dict["n_cells_ALT"] = np.array(rna_dict["n_cells_ALT"])
-rna_dict["n_cells_missing"] = np.array(rna_dict["n_cells_missing"])
-
+for k,v in rna_dict.items():
+  rna_dict[k] = np.array(v)
+  
 t5 = time.time()
 print(str(round(t5 - t4)) + " seconds to process RNA info")
 
@@ -161,10 +160,9 @@ with loompy.connect(atac_loom_file) as ds_atac:
       else:
         atac_dict[k].append(ds_atac.ra[k][atac_index])
 
-atac_dict["n_cells_REF"] = np.array(atac_dict["n_cells_REF"])
-atac_dict["n_cells_ALT"] = np.array(atac_dict["n_cells_ALT"])
-atac_dict["n_cells_missing"] = np.array(atac_dict["n_cells_missing"])
-
+for k,v in atac_dict.items():
+  atac_dict[k] = np.array(v)
+  
 t6 = time.time()
 print(str(round(t6 - t5)) + " seconds to process ATAC info")
 
