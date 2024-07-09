@@ -131,7 +131,7 @@ with loompy.connect(rna_loom_file) as ds_rna:
 
 for k,v in rna_dict.items():
   rna_dict[k] = np.array(v)
-  
+
 t5 = time.time()
 print(str(round(t5 - t4)) + " seconds to process RNA info")
 
@@ -162,7 +162,7 @@ with loompy.connect(atac_loom_file) as ds_atac:
 
 for k,v in atac_dict.items():
   atac_dict[k] = np.array(v)
-  
+
 t6 = time.time()
 print(str(round(t6 - t5)) + " seconds to process ATAC info")
 
@@ -195,19 +195,15 @@ prop_var_with_GT = 1 - np.apply_along_axis(np.mean, 1, layers_dict[""] == 3)
 keep_var_index_F4 = np.where(prop_var_with_GT >= min_prop_var_with_GT)[0]
 
 for k,v in layers_dict.items():
-  print(k)
   layers_dict[k] = v[keep_var_index_F4,:]
 
 for k,v in row_dict.items():
-  print(k)
   row_dict[k] = v[keep_var_index_F4]
-  
+
 for k,v in rna_dict.items():
-  print(k)
   rna_dict[k] = v[keep_var_index_F4]
-  
+
 for k,v in atac_dict.items():
-  print(k)
   atac_dict[k] = v[keep_var_index_F4]
 
 # Filter 5: remove cells with genotype in < X% of variants
@@ -235,7 +231,7 @@ t8 = time.time()
 print(str(round(t8 - t7)) + " seconds to perform standard filters")
 
 multiome_evidence = np.logical_or(rna_dict["n_cells_ALT"] >= min_multiome_cells, atac_dict["n_cells_ALT"] >= min_multiome_cells)
-keep_var_index_F6 = np.where(prop_var_mutated >= min_prop_var_mutated or (multiome_evidence and prop_var_mutation > 0))[0]
+keep_var_index_F6 = np.where(np.logical_or(prop_var_mutated >= min_prop_var_mutated, np.logical_and(multiome_evidence, prop_var_mutated > 0)))[0]
 
 for k,v in layers_dict.items():
   layers_dict[k] = v[keep_var_index_F6,:]
@@ -245,7 +241,7 @@ for k,v in row_dict.items():
 
 for k,v in rna_dict.items():
   rna_dict[k] = v[keep_var_index_F6]
-  
+
 for k,v in atac_dict.items():
   atac_dict[k] = v[keep_var_index_F6]
 
@@ -261,12 +257,12 @@ print(str(round(t10 - t9)) + " seconds to write loom file")
 # write other output files
 
 var_cb = open(var_cb_file, "w")
-var_cb_header_list = ["chr", "pos", "ref", "alt", "cell_barcode", "GT", "DP", "AD_REF", "AD_ALT", "GQ"]
+var_cb_header_list = ["variant_GRCh37", "variant_GRCh38", "chr_GRCh37", "chr_GRCh38", "pos_GRCh37", "pos_GRCh38", "ref", "alt", "cell_barcode", "GT", "DP", "AD_REF", "AD_ALT", "GQ"]
 var_cb_header_line = "\t".join(var_cb_header_list) + "\n"
 var_cb.write(var_cb_header_line)
 
 var_sum = open(var_sum_file, "w")
-var_sum_header_list = ["variant_GRCh37", "variant_GRCh38", "chr_GRCh37", "chr_GRCh38", "pos_GRCh37", "pos_GRCh38", "ref", "alt", "n_cells", "n_00", "n_01", "n_11", "n_na", "prop_cells_mutated", "alt_allele_freq"] + [x + "_scRNA" for x in list(rna_list.keys())] + [x + "_scATAC" for x in list(atac_list.keys())] + list(annot_dict.keys())
+var_sum_header_list = ["variant_GRCh37", "variant_GRCh38", "chr_GRCh37", "chr_GRCh38", "pos_GRCh37", "pos_GRCh38", "ref", "alt", "n_cells", "n_00", "n_01", "n_11", "n_na", "prop_cells_mutated", "alt_allele_freq"] + [x + "_scRNA" for x in list(rna_dict.keys())] + [x + "_scATAC" for x in list(atac_dict.keys())] + list(annot_dict.keys())
 var_sum_header_line = "\t".join(var_sum_header_list) + "\n"
 var_sum.write(var_sum_header_line)
 
@@ -274,35 +270,35 @@ n_var = layers_dict[""].shape[0]
 n_cells = layers_dict[""].shape[1]
 
 for var_index in range(n_var):
-    variant_GRCh37 = row_dict["variant_GRCh37"][var_index]
-    variant_GRCh38 = row_dict["variant_GRCh38"][var_index]
-    chr_GRCh37, pos_GRCh37 = variant_GRCh37.split(":")[0:2]
-    chr_GRCh38, pos_GRCh38 = variant_GRCh38.split(":")[0:2]
-    ref = row_dict["REF"][var_index]
-    alt = row_dict["ALT"][var_index]
-    for cb_index in range(n_cells):
-        cb = col_dict["barcode"][cb_index]
-        gt = layers_dict[""][var_index, cb_index]
-        dp = layers_dict["DP"][var_index, cb_index]
-        ad_ref = layers_dict["RO"][var_index, cb_index]
-        ad_alt = layers_dict["AD"][var_index, cb_index]
-        gq = layers_dict["GQ"][var_index, cb_index]
-        var_cb_list = [str(x) for x in [chr, pos, ref, alt, cb, gt, dp, ad_ref, ad_alt, gq]]
-        var_line = "\t".join(var_cb_list) + "\n"
-        var_cb.write(var_line)
-    var = layers_dict[""][var_index,:]
-    n_na = (var == 3).sum()
-    n_not_na = n_cells - n_na
-    n_00 = (var == 0).sum()
-    n_01 = (var == 1).sum()
-    n_11 = (var == 2).sum()
-    prop_cells_mutated = (n_01 + n_11)/(n_not_na)
-    alt_allele_freq = (n_01 + 2*n_11)/(2*n_not_na)
-    rna_values = [rna_dict[x][var_index] for x in list(rna_dict.keys())]
-    atac_values = [atac_dict[x][var_index] for x in list(atac_dict.keys())]
-    annot_values = [annot_dict[x][var_index] for x in list(annot_dict.keys())]
-    sum_line = [str(x) for x in [variant_GRCh37, variant_GRCh38, chr_GRCh37, chr_GRCh38, pos_GRCh37, pos_GRCh38, ref, alt, n_cells, n_00, n_01, n_11, n_na, prop_cells_mutated, alt_allele_freq] + rna_values + atac_values + annot_values]
-    var_sum.write("\t".join(sum_line) + "\n")
+  variant_GRCh37 = row_dict["variant_GRCh37"][var_index]
+  variant_GRCh38 = row_dict["variant_GRCh38"][var_index]
+  chr_GRCh37, pos_GRCh37 = variant_GRCh37.split(":")[0:2]
+  chr_GRCh38, pos_GRCh38 = variant_GRCh38.split(":")[0:2]
+  ref = row_dict["REF"][var_index]
+  alt = row_dict["ALT"][var_index]
+  for cb_index in range(n_cells):
+    cb = col_dict["barcode"][cb_index]
+    gt = layers_dict[""][var_index, cb_index]
+    dp = layers_dict["DP"][var_index, cb_index]
+    ad_ref = layers_dict["RO"][var_index, cb_index]
+    ad_alt = layers_dict["AD"][var_index, cb_index]
+    gq = layers_dict["GQ"][var_index, cb_index]
+    var_cb_list = [str(x) for x in [variant_GRCh37, variant_GRCh38, chr_GRCh37, chr_GRCh38, pos_GRCh37, pos_GRCh38, ref, alt, cb, gt, dp, ad_ref, ad_alt, gq]]
+    var_line = "\t".join(var_cb_list) + "\n"
+    var_cb.write(var_line)
+  var = layers_dict[""][var_index,:]
+  n_na = (var == 3).sum()
+  n_not_na = n_cells - n_na
+  n_00 = (var == 0).sum()
+  n_01 = (var == 1).sum()
+  n_11 = (var == 2).sum()
+  prop_cells_mutated = (n_01 + n_11)/(n_not_na)
+  alt_allele_freq = (n_01 + 2*n_11)/(2*n_not_na)
+  rna_values = [rna_dict[x][var_index] for x in list(rna_dict.keys())]
+  atac_values = [atac_dict[x][var_index] for x in list(atac_dict.keys())]
+  annot_values = [annot_dict[x][var_index] for x in list(annot_dict.keys())]
+  sum_line = [str(x) for x in [variant_GRCh37, variant_GRCh38, chr_GRCh37, chr_GRCh38, pos_GRCh37, pos_GRCh38, ref, alt, n_cells, n_00, n_01, n_11, n_na, prop_cells_mutated, alt_allele_freq] + rna_values + atac_values + annot_values]
+  var_sum.write("\t".join(sum_line) + "\n")
 
 var_cb.close()
 var_sum.close()
