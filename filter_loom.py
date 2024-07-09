@@ -77,6 +77,9 @@ with loompy.connect(annotation_loom_file) as ds_annot:
       else:
         annot_dict[k].append(ds_annot.ra[k][annot_index])
 
+for k,v in annot_dict.items():
+  annot_dict[k] = np.array(annot_dict[k])
+
 t2 = time.time()
 print(str(round(t2 - t1)) + " seconds to load annotation info")
 
@@ -200,6 +203,9 @@ for k,v in layers_dict.items():
 for k,v in row_dict.items():
   row_dict[k] = v[keep_var_index_F4]
 
+for k,v in annot_dict.items():
+  annot_dict[k] = v[keep_var_index_F4]
+
 for k,v in rna_dict.items():
   rna_dict[k] = v[keep_var_index_F4]
 
@@ -238,6 +244,9 @@ for k,v in layers_dict.items():
 
 for k,v in row_dict.items():
   row_dict[k] = v[keep_var_index_F6]
+
+for k,v in annot_dict.items():
+  annot_dict[k] = v[keep_var_index_F6]
 
 for k,v in rna_dict.items():
   rna_dict[k] = v[keep_var_index_F6]
