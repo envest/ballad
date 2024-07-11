@@ -13,6 +13,7 @@ dependencies:
   - loompy
   - liftover
   - pyfaidx
+  - natsort
   - perl
   - perl-archive-zip
   - perl-dbd-mysql
