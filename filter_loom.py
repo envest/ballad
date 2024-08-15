@@ -88,8 +88,8 @@ with loompy.connect(rna_loom_file) as ds_rna:
   rna_n_cells_ref = np.zeros(ds_rna.shape[0])
   rna_n_cells_alt = np.zeros(ds_rna.shape[0])
   for(ix, selection, view) in ds_rna.scan(axis = 0):
-    rna_n_cells_ref[selection.min():selection.max() + 1] = np.apply_along_axis(sum, 1, view[:,:] == 1)
-    rna_n_cells_alt[selection.min():selection.max() + 1] = np.apply_along_axis(sum, 1, view[:,:] > 1)
+    rna_n_cells_ref[selection.min():selection.max() + 1] = np.apply_along_axis(sum, 1, view[:,:] == 0)
+    rna_n_cells_alt[selection.min():selection.max() + 1] = np.apply_along_axis(sum, 1, view[:,:] in [1,2])
   rna_n_cells_missing = ds_rna.shape[1] - rna_n_cells_ref - rna_n_cells_alt
 
 t3 = time.time()
@@ -100,8 +100,8 @@ with loompy.connect(atac_loom_file) as ds_atac:
   atac_n_cells_ref = np.zeros(ds_atac.shape[0])
   atac_n_cells_alt = np.zeros(ds_atac.shape[0])
   for(ix, selection, view) in ds_atac.scan(axis = 0):
-    atac_n_cells_ref[selection.min():selection.max() + 1] = np.apply_along_axis(sum, 1, view[:,:] == 1)
-    atac_n_cells_alt[selection.min():selection.max() + 1] = np.apply_along_axis(sum, 1, view[:,:] > 1)
+    atac_n_cells_ref[selection.min():selection.max() + 1] = np.apply_along_axis(sum, 1, view[:,:] == 0)
+    atac_n_cells_alt[selection.min():selection.max() + 1] = np.apply_along_axis(sum, 1, view[:,:] in [1,2])
   atac_n_cells_missing = ds_atac.shape[1] - atac_n_cells_ref - atac_n_cells_alt
 
 t4 = time.time()
