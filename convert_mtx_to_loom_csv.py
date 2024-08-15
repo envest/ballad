@@ -24,7 +24,8 @@ if n_var == 0:
     print("No variants found in " + mtx_filename)
     sys.exit()
 
-consensus_array = np.zeros((n_var, n_bc))
+# set up consensus array with all missing values
+consensus_array = np.zeros((n_var, n_bc)) + 3
 
 # convert var_file to dict of row_attr
 # match names to tapestri loom
@@ -69,7 +70,12 @@ mtx_file.readline()
 
 for line in mtx_file:
     var, bc, gt = [int(x) for x in line.strip().split()]
-    consensus_array[var - 1, bc - 1] = gt
+    if gt == 1: # REF only
+        consensus_array[var - 1, bc - 1] = 0
+    else if gt in [2,3]: # ALT only or ALT+REF
+        consensus_array[var - 1, bc - 1] = 1
+    else:
+        exit("sparse consensus.mtx contains value other than 1,2,3")
 
 # create loom output
 loompy.create(output_loom_filename, 
