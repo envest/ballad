@@ -72,7 +72,7 @@ for line in mtx_file:
     var, bc, gt = [int(x) for x in line.strip().split()]
     if gt == 1: # REF only
         consensus_array[var - 1, bc - 1] = 0
-    else if gt in [2,3]: # ALT only or ALT+REF
+    elif gt in [2,3]: # ALT only or ALT+REF
         consensus_array[var - 1, bc - 1] = 1
     else:
         exit("sparse consensus.mtx contains value other than 1,2,3")
