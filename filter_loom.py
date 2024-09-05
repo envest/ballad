@@ -19,7 +19,7 @@ dp_min = 10
 scVAF_min = 0.2
 min_prop_cell_with_GT = 0.5
 min_prop_var_with_GT = 0.5
-min_prop_var_mutated = sys.argv[8] #0.01
+min_prop_var_mutated = 0.01
 min_multiome_cells = 1
 
 var_cb_file = output_dir + "/" + output_file_prefix + ".variant_cell_barcode.tsv"
