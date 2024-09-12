@@ -101,7 +101,7 @@ for m,i in mutation_dict.items():
         if cell_type_cov > 0:
             cell_type_prop = cell_type_mut/cell_type_cov
             # using overall proportion of mutated cells (misleading if sample dominated by cell type with most of mutations)
-            binom_result = binomtest(k = cell_type_mut, n = cell_type_cov, p = mutation_prop[m], alternative = "greater")
+            #binom_result = binomtest(k = cell_type_mut, n = cell_type_cov, p = mutation_prop[m], alternative = "greater")
             # using sequencing by synthesis error rate of 0.25% (0.0025)
             # H0: the mutations observed in this cell type are not greater than would be expected by random error
             if cell_type_mut > 0:
