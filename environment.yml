@@ -10,6 +10,7 @@ dependencies:
   - vartrix
   - python
   - numpy
+  - pandas
   - loompy
   - liftover
   - pyfaidx
