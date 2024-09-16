@@ -1,4 +1,4 @@
-# vartrix2loom: convert a vartrix mtx file to loom
+# convert_mtx_to_loom_tsv: convert a vartrix mtx file to loom and tsv
 # inputs: consensus.mtx variants.vcf barcodes.tsv output.loom output.csv
 
 import sys
@@ -9,7 +9,7 @@ mtx_filename = sys.argv[1]
 var_filename = sys.argv[2]
 bc_filename = sys.argv[3]
 output_loom_filename = sys.argv[4]
-output_csv_filename = sys.argv[5]
+output_tsv_filename = sys.argv[5]
 
 mtx_file = open(mtx_filename, "r")
 var_file = open(var_filename, "r")
@@ -83,16 +83,16 @@ loompy.create(output_loom_filename,
         {k:np.array(v) for k,v in row_attrs.items()}, 
         {k:np.array(v) for k,v in col_attrs.items()})
 
-# create csv output
-output_csv = open(output_csv_filename, "w")
+# create tsv output
+output_tsv = open(output_tsv_filename, "w")
 
-header_line = ",".join(["variant"] + list(col_attrs["barcode"])) + "\n"
-output_csv.write(header_line)
+header_line = "\t".join(["variant"] + list(col_attrs["barcode"])) + "\n"
+output_tsv.write(header_line)
 
 for row_index in range(n_var):
     var = ":".join([chr_list[row_index], str(pos_list[row_index]), str(ref_list[row_index]), str(alt_list[row_index])])
-    write_line = ",".join([var] + [str(int(x)) for x in consensus_array[row_index]]) + "\n"
-    output_csv.write(write_line)
+    write_line = "\t".join([var] + [str(int(x)) for x in consensus_array[row_index]]) + "\n"
+    output_tsv.write(write_line)
 
-output_csv.close()
+output_tsv.close()
 
